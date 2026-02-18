@@ -1,0 +1,117 @@
+/* interface/tema.css — template QSS para o app
+ * Tokens: __BG__, __FG__, __MAIN_BG__, __MAIN_FG__, __ACCENT__, __HEADER_BG__, __NAV_BG__
+ */
+
+/* ===== Global ===== */
+QMainWindow {
+    background-color: __BG__;
+    color: __FG__;
+}
+
+/* Forçar cor do texto na maioria dos widgets */
+QWidget, QLabel, QPushButton, QLineEdit, QTextEdit, QPlainTextEdit, QComboBox,
+QSpinBox, QDoubleSpinBox, QTabWidget, QMenuBar, QMenu, QToolButton,
+QGroupBox, QCheckBox, QRadioButton, QTableView, QListView, QTreeView {
+    color: __FG__;
+    background-color: transparent;
+}
+
+/* Header (top bar) */
+QWidget#header {
+    background-color: __HEADER_BG__;
+    padding: 12px;
+    border-bottom: 1px solid __ACCENT__;
+    /* leve transparência para profundidade */
+    background-clip: padding;
+}
+
+/* Navbar (coluna esquerda) */
+QWidget#navbar {
+    background-color: __NAV_BG__;
+    min-width: 180px;
+    padding: 10px;
+    border-right: 1px solid __ACCENT__;
+}
+
+/* Main (conteúdo principal) */
+QWidget#main {
+    background-color: __MAIN_BG__;
+    padding: 12px;
+}
+
+/* Forçar cores dentro do main */
+QWidget#main, QWidget#main * {
+    color: __MAIN_FG__;
+}
+
+/* Text widgets específicos */
+QLabel {
+    color: inherit;
+    font-size: 14px;
+}
+
+/* Inputs */
+QLineEdit, QPlainTextEdit, QTextEdit {
+    color: inherit;
+    background-color: rgba(0,0,0,0);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 6px;
+    border-radius: 6px;
+}
+
+/* Botões padrão */
+QPushButton {
+    background-color: transparent;
+    color: inherit;
+    border: 1px solid __ACCENT__;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+/* Botão de toggle de tema — destaque visual */
+QPushButton#themeToggle {
+    background-color: __ACCENT__;
+    color: __BG__;
+    font-weight: bold;
+    border: none;
+    padding: 8px 12px;
+}
+
+/* Itens de nav (lista) */
+QListWidget {
+    outline: none;
+}
+QListWidget::item {
+    padding: 10px;
+    border-radius: 6px;
+    margin: 4px 0;
+}
+
+/* Scrollbars simples */
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+}
+QScrollBar::handle:vertical {
+    background: __ACCENT__;
+    min-height: 20px;
+    border-radius: 5px;
+}
+
+/* Menu e tabelas */
+QMenuBar, QMenu {
+    background-color: transparent;
+    color: inherit;
+}
+
+QTableView, QListView, QTreeView, QHeaderView {
+    color: inherit;
+    background-color: transparent;
+}
+
+/* Final: regras para dar um leve brilho nas bordas e textos (base) */
+QLabel#titulo {
+    font-size: 18px;
+    font-weight: 700;
+    color: __FG__;
+}

@@ -2,15 +2,11 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QInputDialog, QMessageBox,
     QPushButton, QHBoxLayout, QScrollArea, QFrame, QSizePolicy,
-    QApplication, QDialog
+    QApplication
 )
-from PyQt5.QtCore import Qt, QEvent, QPoint
-from PyQt5.QtGui import QPixmap, QCursor
-
-from banco.controles.kanban.controle_kanban import ControleKanban
+from PyQt5.QtCore import Qt
 from banco.controles.kanban.controle_coluna import ControleColunaKanban
 from banco.controles.kanban.controle_card import ControleCardKanban
-
 from interface.objeto.coluna_kanban import ColunaKanbanWidget
 
 
@@ -22,11 +18,8 @@ class QuadroKanbanWindow(QWidget):
         self.controle_coluna = controle_coluna or ControleColunaKanban()
         self.controle_card = controle_card or ControleCardKanban()
 
-        # força mínima de altura global da janela/quadro
         self.setMinimumHeight(900)
-
         self._coluna_widgets = []
-
         self.nome_quadro = nome_quadro or self.buscar_nome_quadro()
 
         self.layout = QVBoxLayout(self)
@@ -47,46 +40,30 @@ class QuadroKanbanWindow(QWidget):
         header_layout.addWidget(self.header, 1)
         self.layout.addLayout(header_layout)
 
-        # ==============================
-        # ÁREA DE COLUNAS (FORÇADA PARA 900px)
-        # ==============================
+        # ÁREA DE COLUNAS
         self.columns_scroll = QScrollArea()
         self.columns_scroll.setWidgetResizable(True)
         self.columns_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.columns_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.columns_scroll.setFrameShape(QFrame.NoFrame)
-
-        # Forçar altura mínima de exibição das colunas para 900px
-        self.columns_scroll.setMinimumHeight(900)
+        self.columns_scroll.setMinimumHeight(600)
         self.columns_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.columns_container = QWidget()
         self.columns_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        # Forçar altura mínima interna também
-        self.columns_container.setMinimumHeight(900)
+        self.columns_container.setMinimumHeight(600)
 
+        # layout horizontal para colunas — alinhado à esquerda para não "empurrar" o placeholder
         self.columns_layout = QHBoxLayout(self.columns_container)
         self.columns_layout.setContentsMargins(10, 10, 10, 10)
         self.columns_layout.setSpacing(16)
+        self.columns_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
         self.columns_scroll.setWidget(self.columns_container)
+        self.layout.addWidget(self.columns_scroll, 1)
 
-        # Colocar stretch maior (prioridade de expansão vertical)
-        # o segundo argumento (10) fornece um peso alto no layout vertical
-        self.layout.addWidget(self.columns_scroll, 10)
-
-        # placeholder
-        self.add_column_placeholder = self._create_add_column_placeholder()
-
-        # carregar colunas
+        # carregar colunas (o placeholder será criado dentro de load_columns)
         self.load_columns()
-
-        # garantir que o widget principal não fique abaixo do mínimo
-        self.setMinimumHeight(900)
-
-    # ==============================
-    # MÉTODOS
-    # ==============================
 
     def buscar_nome_quadro(self):
         return f"Quadro {self.quadro_id}" if self.quadro_id else "Quadro"
@@ -99,9 +76,6 @@ class QuadroKanbanWindow(QWidget):
                 root.load_shortcut_module("kanbans")
                 return
             root = root.parent()
-    # ==============================
-    # MÉTODOS ESTÁTICOS DE DIÁLOGO
-    # ==============================
 
     @staticmethod
     def criar_novo_quadro(parent=None):
@@ -110,19 +84,12 @@ class QuadroKanbanWindow(QWidget):
             return nome.strip()
         return None
 
-
     @staticmethod
     def editar_nome_quadro(parent=None, nome_atual=""):
-        nome, ok = QInputDialog.getText(
-            parent,
-            "Editar Quadro",
-            "Novo nome:",
-            text=nome_atual
-        )
+        nome, ok = QInputDialog.getText(parent, "Editar Quadro", "Novo nome:", text=nome_atual)
         if ok and nome.strip():
             return nome.strip()
         return None
-
 
     @staticmethod
     def confirmar_exclusao(parent=None, nome=""):
@@ -135,55 +102,65 @@ class QuadroKanbanWindow(QWidget):
         )
         return resposta == QMessageBox.Yes
 
-    def _create_add_column_placeholder(self):
-        placeholder = QFrame()
-        placeholder.setMinimumWidth(260)
-        placeholder.setMaximumWidth(260)
-        placeholder.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+    # ---------- novo placeholder claro e responsivo (QPushButton) ----------
+    def _create_add_column_button(self):
+        btn = QPushButton("+\nAdicionar coluna")
+        btn.setFixedWidth(260)
+        btn.setMinimumHeight(160)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFocusPolicy(Qt.StrongFocus)
+        btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        placeholder.setStyleSheet("""
-            QFrame { 
-                background-color: rgba(58, 58, 58, 180); 
-                border: 1px solid grey;
+        # estilo com contraste para tema escuro; fica visível mesmo em fundos pretos
+        btn.setStyleSheet("""
+            QPushButton {
+                color: #ffffff;
+                background-color: rgba(80,80,80,220);
+                border: 1px solid rgba(200,200,200,0.08);
                 border-radius: 8px;
+                font-size: 18px;
+                padding: 8px;
+                text-align: center;
             }
-            QFrame:hover { 
-                background-color: rgba(128, 128, 128, 200); 
+            QPushButton:hover {
+                background-color: rgba(110,110,110,230);
+            }
+            QPushButton:pressed {
+                background-color: rgba(140,140,140,230);
             }
         """)
+        btn.clicked.connect(self._on_add_column_clicked)
 
-
-        v = QVBoxLayout(placeholder)
-        v.addStretch()
-        plus = QLabel("+")
-        plus.setAlignment(Qt.AlignCenter)
-        plus.setStyleSheet("border: none; background-color: transparent; font-size: 40px;")
-        v.addWidget(plus)
-        v.addStretch()
-
-        def _mouse_press(ev):
-            if ev.button() == Qt.LeftButton:
-                self._on_add_column_clicked()
-        placeholder.mousePressEvent = _mouse_press
-
-        return placeholder
+        return btn
 
     def load_columns(self):
-        # limpa o layout de colunas
+        """
+        Recarrega as colunas do quadro.
+        Limpa corretamente widgets e itens do layout, recria placeholder como botão visível e força redraw.
+        """
+        # limpa o layout de colunas (trata widgets e spacers)
         while self.columns_layout.count():
             item = self.columns_layout.takeAt(0)
+            if item is None:
+                continue
             w = item.widget()
             if w:
                 w.setParent(None)
                 w.deleteLater()
+            # spacers/itens não-widget já foram removidos pelo takeAt
 
         self._coluna_widgets = []
+
+        # recria placeholder (agora botão)
+        self.add_column_button = self._create_add_column_button()
 
         colunas = []
         try:
             colunas = self.controle_coluna.listar_colunas(self.quadro_id) or []
         except Exception as e:
+            # não interrompe a UI — mostra o placeholder mesmo que a listagem falhe
             print("Erro ao listar colunas:", e)
+            colunas = []
 
         for coluna in colunas:
             widget_coluna = ColunaKanbanWidget(
@@ -192,15 +169,12 @@ class QuadroKanbanWindow(QWidget):
                 parent=self,
                 compact=True,
                 controle_card=self.controle_card,
-                controle_coluna=self.controle_coluna   # <-- adicionado
+                controle_coluna=self.controle_coluna
             )
-
-
             widget_coluna.setMinimumWidth(260)
             widget_coluna.setMaximumWidth(400)
             widget_coluna.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
-            # garantir que a coluna carregue seus cards
             if hasattr(widget_coluna, "load_cards"):
                 try:
                     widget_coluna.load_cards()
@@ -210,9 +184,16 @@ class QuadroKanbanWindow(QWidget):
             self.columns_layout.addWidget(widget_coluna)
             self._coluna_widgets.append(widget_coluna)
 
-        # adicionar placeholder e stretch
-        self.columns_layout.addWidget(self.add_column_placeholder)
+        # sempre adicionar o botão de nova coluna ao final (visível mesmo com zero colunas)
+        self.columns_layout.addWidget(self.add_column_button)
+        # adiciona um pequeno spacer para evitar que o botão fique colado à borda direita em janelas largas
         self.columns_layout.addStretch(1)
+
+        # força atualização visual do container
+        self.columns_container.adjustSize()
+        self.columns_container.update()
+        self.columns_scroll.update()
+        QApplication.processEvents()
 
     def _on_add_column_clicked(self):
         titulo, ok = QInputDialog.getText(self, "Nova Coluna", "Título da coluna:")
@@ -225,22 +206,17 @@ class QuadroKanbanWindow(QWidget):
             QMessageBox.warning(self, "Erro", "Não foi possível criar a coluna.")
             return
 
-        # recarrega colunas (garante que nova coluna apareça)
+        # recarrega colunas
         self.load_columns()
 
-    # ==============================
-    # RESIZE: mantem mínimo de 900px
-    # ==============================
     def resizeEvent(self, event):
         super().resizeEvent(event)
         try:
             total_height = self.height()
             header_height = 80
-            nova_altura = max(900, total_height - header_height)
-
+            nova_altura = max(600, total_height - header_height)
             self.columns_scroll.setMinimumHeight(nova_altura)
             self.columns_container.setMinimumHeight(nova_altura)
-            # reforça altura mínima do próprio widget
-            self.setMinimumHeight(900)
+            self.setMinimumHeight(600)
         except Exception:
             pass

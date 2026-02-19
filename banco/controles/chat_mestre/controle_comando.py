@@ -3,6 +3,8 @@
 from banco.database import conectar
 from typing import List, Tuple, Optional
 
+from nucleo.comandos.chat_router import dispatch_chat_command
+
 
 class ComandoController:
 
@@ -11,13 +13,18 @@ class ComandoController:
     # ======================================================
 
     @staticmethod
-    def processar_texto(texto: str) -> str:
+    def processar_texto(texto: str, session_id: Optional[int] = None, usuario: Optional[str] = None) -> str:
         """
         Decide se o texto corresponde a um comando
         e executa ação correspondente.
         """
 
         texto_lower = texto.lower().strip()
+
+        # Nova camada: comandos por palavra-chave (registry extensível)
+        resultado = dispatch_chat_command(texto, session_id=session_id, usuario=usuario)
+        if resultado.matched and resultado.message:
+            return resultado.message
 
         # exemplo simples
         if texto_lower.startswith("criar comando "):

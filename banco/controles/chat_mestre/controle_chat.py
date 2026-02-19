@@ -96,8 +96,13 @@ class ChatController:
 
         # tenta importar controle_comando dinamicamente
         try:
-            from banco.controles.controle_comando import ComandoController
-            resposta = ComandoController.processar_texto(texto)
+            try:
+                # caminho atual do projeto
+                from banco.controles.chat_mestre.controle_comando import ComandoController
+            except ModuleNotFoundError:
+                # fallback para estruturas antigas
+                from banco.controles.controle_comando import ComandoController
+            resposta = ComandoController.processar_texto(texto, session_id=session_id)
         except Exception:
             # fallback caso ainda não exista controle_comando
             resposta = "Mensagem recebida e salva."

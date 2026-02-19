@@ -4,13 +4,17 @@ import uuid
 import bcrypt
 from datetime import datetime
 from typing import Tuple, Optional, List, Dict
-
 from banco.database import conectar
+import os
 
 # -------------------------
 # Inicialização (tabelas de usuários)
 # -------------------------
 def inicializar_tabela():
+    """
+    Cria a tabela de usuários com colunas extras (foto, cargo).
+    Se a tabela já existir, tenta adicionar colunas novas (migração simples).
+    """
     with conectar() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -20,12 +24,37 @@ def inicializar_tabela():
                 email TEXT UNIQUE NOT NULL,
                 senha_hash TEXT NOT NULL,
                 papel TEXT NOT NULL,
+                cargo TEXT,
+                foto TEXT,
                 data_criacao TEXT NOT NULL,
                 ultimo_login TEXT,
                 ativo INTEGER DEFAULT 1
             )
         """)
         conn.commit()
+
+        # Migração minimalista: adiciona colunas se ausentes (robusto para upgrades)
+        cursor.execute("PRAGMA table_info(usuarios)")
+        cols = [row[1] for row in cursor.fetchall()]
+        if 'cargo' not in cols:
+            try:
+                cursor.execute("ALTER TABLE usuarios ADD COLUMN cargo TEXT")
+            except Exception:
+                pass
+        if 'foto' not in cols:
+            try:
+                cursor.execute("ALTER TABLE usuarios ADD COLUMN foto TEXT")
+            except Exception:
+                pass
+        conn.commit()
+
+
+# garantir inicialização ao importar
+try:
+    inicializar_tabela()
+except Exception:
+    # se houver problema com DB no import, deixamos para que as funções tratem
+    pass
 
 
 # -------------------------
@@ -35,13 +64,17 @@ def existe_usuario() -> bool:
     with conectar() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM usuarios")
-        return cursor.fetchone()[0] > 0
+        row = cursor.fetchone()
+        return (row and row[0] > 0) if row else False
 
 
 # -------------------------
 # Criar usuário
 # -------------------------
-def criar_usuario(nome: str, email: str, senha: str) -> Tuple[bool, str]:
+def criar_usuario(nome: str, email: str, senha: str, cargo: Optional[str] = None, foto_path: Optional[str] = None) -> Tuple[bool, str]:
+    """
+    Cria usuário. cargo e foto_path são opcionais e serão salvos no DB.
+    """
     email = email.strip().lower()
 
     senha_hash = bcrypt.hashpw(
@@ -59,14 +92,16 @@ def criar_usuario(nome: str, email: str, senha: str) -> Tuple[bool, str]:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO usuarios 
-                (id, nome_exibicao, email, senha_hash, papel, data_criacao)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (id, nome_exibicao, email, senha_hash, papel, cargo, foto, data_criacao)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 usuario_id,
                 nome.strip(),
                 email,
                 senha_hash,
                 papel,
+                cargo,
+                foto_path,
                 data_criacao
             ))
             conn.commit()
@@ -86,7 +121,7 @@ def autenticar(email: str, senha: str) -> Tuple[bool, object]:
     with conectar() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, nome_exibicao, senha_hash, papel
+            SELECT id, nome_exibicao, senha_hash, papel, cargo, foto
             FROM usuarios
             WHERE email = ? AND ativo = 1
         """, (email,))
@@ -96,7 +131,7 @@ def autenticar(email: str, senha: str) -> Tuple[bool, object]:
         if not usuario:
             return False, "Usuário não encontrado."
 
-        usuario_id, nome, senha_hash, papel = usuario
+        usuario_id, nome, senha_hash, papel, cargo, foto = usuario
 
         if bcrypt.checkpw(senha.encode(), senha_hash.encode()):
             atualizar_ultimo_login(usuario_id)
@@ -105,7 +140,9 @@ def autenticar(email: str, senha: str) -> Tuple[bool, object]:
                 "id": usuario_id,
                 "nome": nome,
                 "email": email,
-                "papel": papel
+                "papel": papel,
+                "cargo": cargo,
+                "foto": foto
             }
 
         return False, "Senha incorreta."
@@ -135,7 +172,7 @@ def listar_usuarios() -> List[Dict]:
     with conectar() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, nome_exibicao, email, papel, ativo
+            SELECT id, nome_exibicao, email, papel, cargo, foto, ativo
             FROM usuarios
         """)
         rows = cursor.fetchall()
@@ -147,7 +184,9 @@ def listar_usuarios() -> List[Dict]:
                 "nome": row[1],
                 "email": row[2],
                 "papel": row[3],
-                "ativo": row[4]
+                "cargo": row[4],
+                "foto": row[5],
+                "ativo": row[6]
             })
 
         return usuarios
@@ -162,7 +201,7 @@ def buscar_usuario_por_email(email: str) -> Optional[Dict]:
     with conectar() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, nome_exibicao, email, papel, ativo
+            SELECT id, nome_exibicao, email, papel, cargo, foto, ativo
             FROM usuarios
             WHERE email = ?
         """, (email,))
@@ -177,7 +216,9 @@ def buscar_usuario_por_email(email: str) -> Optional[Dict]:
             "nome": row[1],
             "email": row[2],
             "papel": row[3],
-            "ativo": row[4]
+            "cargo": row[4],
+            "foto": row[5],
+            "ativo": row[6]
         }
 
 
@@ -190,7 +231,7 @@ def buscar_usuario_por_nome(nome: str) -> Optional[Dict]:
     with conectar() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, nome_exibicao, email, papel, ativo
+            SELECT id, nome_exibicao, email, papel, cargo, foto, ativo
             FROM usuarios
             WHERE nome_exibicao = ?
         """, (nome,))
@@ -205,5 +246,7 @@ def buscar_usuario_por_nome(nome: str) -> Optional[Dict]:
             "nome": row[1],
             "email": row[2],
             "papel": row[3],
-            "ativo": row[4]
+            "cargo": row[4],
+            "foto": row[5],
+            "ativo": row[6]
         }

@@ -24,6 +24,7 @@ class ColunaKanbanWidget(QFrame):
     def __init__(self, coluna_id=None, titulo="Nova Coluna", parent=None, compact=True,
                  controle_card=None, controle_coluna=None):
         super().__init__(parent)
+        self.setObjectName("kanbanColumn")
         self.coluna_id = coluna_id
         self.titulo = titulo
         self.compact = compact
@@ -53,8 +54,8 @@ class ColunaKanbanWidget(QFrame):
 
         # estilos
         self.setStyleSheet("""
-            QFrame { background: rgba(30,30,30,0.6); border-radius:8px; }
-            QLabel#colTitle { font-weight: bold; color: white; padding:6px; }
+            QFrame#kanbanColumn { background: rgba(255,255,255,0.04); border-radius:8px; border: 1px solid rgba(255,255,255,0.14); }
+            QLabel#colTitle { font-weight: bold; padding:6px; }
             QPushButton { background: rgba(255,255,255,0.08); border: none; border-radius: 4px; }
             QPushButton:hover { background: rgba(255,255,255,0.18); }
         """)
@@ -128,7 +129,6 @@ class ColunaKanbanWidget(QFrame):
 
         # placeholder quando não há cards
         self._empty_label = QLabel('(Nenhum card)')
-        self._empty_label.setStyleSheet('color: #a0a0a0;')
 
         # carregar cards iniciais (tenta, não falha se der exceção)
         try:

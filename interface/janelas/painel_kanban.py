@@ -48,25 +48,9 @@ class PainelKanban(QWidget):
         # BOTÃO NOVO QUADRO
         # ==========================================
         self.btn_novo_quadro = QPushButton("➕ Criar Novo Quadro")
+        self.btn_novo_quadro.setObjectName("btnNovoQuadro")
         self.btn_novo_quadro.setFixedHeight(45)
         self.btn_novo_quadro.setCursor(Qt.PointingHandCursor)
-        self.btn_novo_quadro.setStyleSheet("""
-            QPushButton {
-                font-weight: bold; 
-                background-color: #ffffff; 
-                color: #000000; 
-                border-radius: 5px;
-                border: 1px solid #ccc;
-            }
-            QPushButton:hover {
-                background-color: #e0e0e0;
-                color: #333333;
-                border: 1px solid #bbb;
-            }
-            QPushButton:pressed {
-                background-color: #d0d0d0;
-            }
-        """)
         self.layout_principal.addWidget(self.btn_novo_quadro)
 
         # Conexões
@@ -107,19 +91,8 @@ class PainelKanban(QWidget):
     def criar_card_quadro(self, nome, qid):
         """Cria um widget visual (Card) com Editar, Excluir e Abrir."""
         card = QFrame()
+        card.setObjectName("kanbanBoardCard")
         card.setFixedSize(220, 180) # Aumentado para acomodar os novos botões
-        card.setStyleSheet("""
-            QFrame {
-                background-color: #ffffff;
-                border: 2px solid #bdc3c7;
-                border-radius: 12px;
-                color: #000;
-            }
-            QFrame:hover {
-                border: 2px solid #3498db;
-                background-color: #f7f9f9;
-            }
-        """)
 
         layout_card = QVBoxLayout(card)
         
@@ -153,21 +126,9 @@ class PainelKanban(QWidget):
 
         # Botão Abrir
         btn_abrir = QPushButton("Abrir")
+        btn_abrir.setObjectName("btnAbrirQuadro")
         btn_abrir.setCursor(Qt.PointingHandCursor)
         btn_abrir.setFixedHeight(35)
-        btn_abrir.setStyleSheet("""
-            QPushButton {
-                background-color: #000; 
-                color: white; 
-                border-radius: 6px;
-                border: none;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: grey;
-            }
-        """)
         btn_abrir.clicked.connect(lambda ch, q=qid, n=nome: self.abrir_quadro_por_id(q, n))
         layout_card.addWidget(btn_abrir)
 

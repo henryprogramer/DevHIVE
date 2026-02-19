@@ -24,6 +24,7 @@ class CardKanbanWidget(QFrame):
 
     def __init__(self, card_id=None, titulo="Novo Card", coluna_id=None, parent_coluna=None):
         super().__init__(parent_coluna)
+        self.setObjectName("kanbanCard")
         self.card_id = card_id
         self.coluna_id = coluna_id
         self.parent_coluna = parent_coluna
@@ -37,12 +38,12 @@ class CardKanbanWidget(QFrame):
 
         # Layout e aparência
         self.setStyleSheet("""
-            QFrame {
-                background-color: rgba(50,50,50,0.8);
+            QFrame#kanbanCard {
+                background-color: rgba(255,255,255,0.05);
                 border-radius: 6px;
-                border: 1px solid rgba(255,255,255,0.08);
+                border: 1px solid rgba(255,255,255,0.14);
             }
-            QLabel#tagLabel { font-weight: bold; color: #ffffff; padding:4px 8px; border-radius:4px; background: rgba(100,100,255,0.15); }
+            QLabel#tagLabel { font-weight: bold; padding:4px 8px; border-radius:4px; background: rgba(100,100,255,0.15); }
         """)
         # largura controlada (não expandir infinitamente)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
@@ -62,7 +63,7 @@ class CardKanbanWidget(QFrame):
 
         # Descrição
         self.label_descricao = QLabel("(sem descrição)")
-        self.label_descricao.setStyleSheet("color: #cccccc; font-size: 12px;")
+        self.label_descricao.setStyleSheet("font-size: 12px;")
         self.label_descricao.setWordWrap(True)
         self.layout.addWidget(self.label_descricao)
 
@@ -94,7 +95,7 @@ class CardKanbanWidget(QFrame):
     def _init_header(self):
         header = QHBoxLayout()
         self.label_titulo = QLabel(self.titulo)
-        self.label_titulo.setStyleSheet("font-weight: bold; color: white; font-size: 13px;")
+        self.label_titulo.setStyleSheet("font-weight: bold; font-size: 13px;")
         self.label_titulo.setWordWrap(True)
         header.addWidget(self.label_titulo)
         header.addStretch()
@@ -266,7 +267,7 @@ class CardKanbanWidget(QFrame):
             for it in self._cached_checklist:
                 display_text = f"{'✅ ' if it.get('concluido') else '⬜ '}{it.get('descricao')}"
                 label = QLabel(display_text)
-                label.setStyleSheet('color: #eaeaea;')
+                label.setStyleSheet('font-style: italic;')
                 sec['layout'].addWidget(label)
             self.sections_container.addWidget(sec['frame'])
 
@@ -275,7 +276,7 @@ class CardKanbanWidget(QFrame):
             sec = self._build_section_frame('Pastas', 'folder')
             for f in self._cached_folders:
                 lbl = QLabel(f.get('titulo'))
-                lbl.setStyleSheet('color: #cfe8ff;')
+                lbl.setStyleSheet('font-weight: bold;')
                 sec['layout'].addWidget(lbl)
             self.sections_container.addWidget(sec['frame'])
 
@@ -299,7 +300,7 @@ class CardKanbanWidget(QFrame):
 
     def _build_section_frame(self, title, key):
         frame = QFrame()
-        frame.setStyleSheet('background-color: rgba(40,40,40,0.6); border-radius:6px; padding:6px;')
+        frame.setStyleSheet('background-color: rgba(255,255,255,0.06); border-radius:6px; padding:6px;')
         v = QVBoxLayout(frame)
         h = QHBoxLayout()
         h.addWidget(QLabel(f"<b>{title}</b>"))
@@ -383,7 +384,7 @@ class CardKanbanWidget(QFrame):
         # ---- Tarefas (com subtarefas) ----
         checklist = self.controle_card.listar_checklist(self.card_id, parent_id=None)
         sec_frame = QFrame()
-        sec_frame.setStyleSheet('background-color: rgba(30,30,30,0.6); border-radius:6px; padding:6px;')
+        sec_frame.setStyleSheet('background-color: rgba(255,255,255,0.06); border-radius:6px; padding:6px;')
         sec_layout = QVBoxLayout(sec_frame)
         header = QHBoxLayout()
         header.addWidget(QLabel('<b>Tarefas</b>'))
@@ -405,7 +406,7 @@ class CardKanbanWidget(QFrame):
         # ---- Anexos e Pastas ----
         # Construímos um único painel com search + lista mista (anexos + subpastas)
         panel = QFrame()
-        panel.setStyleSheet('background-color: rgba(30,30,30,0.6); border-radius:6px; padding:8px;')
+        panel.setStyleSheet('background-color: rgba(255,255,255,0.06); border-radius:6px; padding:8px;')
         panel_layout = QVBoxLayout(panel)
 
         header = QHBoxLayout()
@@ -461,7 +462,7 @@ class CardKanbanWidget(QFrame):
                 row = QFrame()
                 row.setObjectName('folder_row')
                 row.setProperty('item_name', a.get('nome_arquivo') or '')
-                row.setStyleSheet('background-color: rgba(50,50,50,0.5); border-radius:4px; padding:6px;')
+                row.setStyleSheet('background-color: rgba(255,255,255,0.06); border-radius:4px; padding:6px;')
                 row_layout = QHBoxLayout(row)
                 caminho = a.get('caminho_local')
                 if caminho and self._is_image_path(caminho):
@@ -496,7 +497,7 @@ class CardKanbanWidget(QFrame):
                 row = QFrame()
                 row.setObjectName('folder_row')
                 row.setProperty('item_name', f.get('titulo') or '')
-                row.setStyleSheet('background-color: rgba(50,50,50,0.5); border-radius:4px; padding:6px;')
+                row.setStyleSheet('background-color: rgba(255,255,255,0.06); border-radius:4px; padding:6px;')
                 row_layout = QHBoxLayout(row)
                 lbl = QLabel(f.get('titulo'))
                 row_layout.addWidget(lbl)
@@ -615,7 +616,7 @@ class CardKanbanWidget(QFrame):
     # ------------------------
     def _render_checklist_item(self, item_row: dict, parent_layout: QVBoxLayout, level: int = 0):
         row = QFrame()
-        row.setStyleSheet('background-color: rgba(50,50,50,0.5); border-radius:4px; padding:6px;')
+        row.setStyleSheet('background-color: rgba(255,255,255,0.06); border-radius:4px; padding:6px;')
         row_layout = QVBoxLayout(row)
         top = QHBoxLayout()
         indent = max(0, level * 12)

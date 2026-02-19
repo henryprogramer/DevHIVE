@@ -36,14 +36,14 @@ class MetricCard(QFrame):
         layout.addWidget(self.titulo)
         layout.addWidget(self.valor)
 
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QFrame#metricCard {
-                background-color: #2b2b2b;
                 border-radius: 12px;
                 padding: 15px;
-                color: white;
             }
-        """)
+            """
+        )
 
     def atualizar_valor(self, novo_valor: str):
         self.valor.setText(novo_valor)

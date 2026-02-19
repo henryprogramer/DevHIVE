@@ -3,7 +3,7 @@ from pathlib import Path
 import sqlite3
 
 BASE_DIR = Path(__file__).resolve().parent
-CAMINHO_DB = BASE_DIR / "dados.sqlite"
+CAMINHO_DB = BASE_DIR / "devhive.sqlite"
 
 def conectar():
     """

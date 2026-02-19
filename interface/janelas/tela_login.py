@@ -1,144 +1,32 @@
 # interface/janelas/tela_login.py
-from typing import Tuple, Optional, Dict, List
+from typing import Tuple, Optional, Dict
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QLineEdit, QPushButton,
     QVBoxLayout, QHBoxLayout, QMessageBox, QFrame, QApplication,
-    QGraphicsDropShadowEffect, QGraphicsOpacityEffect, QSizePolicy
+    QGraphicsDropShadowEffect, QGraphicsOpacityEffect, QSizePolicy,
+    QFileDialog
 )
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QSize, QRect
 from PyQt5.QtGui import QFont, QColor, QPixmap, QIcon, QPainter, QPen, QBrush, QPalette
 import sys
 import os
 import traceback
+import shutil
+import uuid
 
-# -----------------------
-# Configuráveis / Consts
-# -----------------------
-MIN_NAME_LEN = 4
-MIN_PASSWORD_LEN = 4
-
-# --------------------------
-# IMPORT DO BACKEND (REAL) (ou fallback)
-# --------------------------
-# Esperado: banco/auth.py com as funções
-# criar_usuario(nome, email, senha) -> (bool, mensagem)
-# autenticar(email_or_identifier, senha) -> (bool, dict_or_mensagem)
-# listar_usuarios() -> list[dict]
-# buscar_usuario_por_email(email) -> dict | None
-# buscar_usuario_por_nome(nome) -> dict | None
-
-_need_funcs = [
-    "criar_usuario",
-    "autenticar",
-    "listar_usuarios",
-    "buscar_usuario_por_email",
-    "buscar_usuario_por_nome",
-]
-
-base_criar_usuario = None
-base_autenticar = None
-base_listar_usuarios = None
-base_buscar_usuario_por_email = None
-base_buscar_usuario_por_nome = None
-
-_use_fallback = False
-try:
-    import banco.auth as _auth_mod  # type: ignore
-    # verify functions exist
-    for fn in _need_funcs:
-        if not hasattr(_auth_mod, fn):
-            raise AttributeError(f"módulo 'banco.auth' não tem '{fn}'")
-    base_criar_usuario = getattr(_auth_mod, "criar_usuario")
-    base_autenticar = getattr(_auth_mod, "autenticar")
-    base_listar_usuarios = getattr(_auth_mod, "listar_usuarios")
-    base_buscar_usuario_por_email = getattr(_auth_mod, "buscar_usuario_por_email")
-    base_buscar_usuario_por_nome = getattr(_auth_mod, "buscar_usuario_por_nome")
-except Exception as e:
-    # fallback in-memory implementation (útil para dev)
-    _use_fallback = True
-    print("Aviso: banco.auth ausente/incompleto — usando fallback em memória para desenvolvimento.")
-    print("Detalhe do erro:", e)
-    # traceback.print_exc()
-
-    _SIM_USERS: List[Dict[str, str]] = []
-
-    def base_listar_usuarios() -> List[Dict[str, str]]:
-        return list(_SIM_USERS)
-
-    def base_buscar_usuario_por_email(email: str) -> Optional[Dict[str, str]]:
-        if not email:
-            return None
-        for u in _SIM_USERS:
-            if u.get("email", "").lower() == email.lower():
-                return dict(u)
-        return None
-
-    def base_buscar_usuario_por_nome(nome: str) -> Optional[Dict[str, str]]:
-        if not nome:
-            return None
-        for u in _SIM_USERS:
-            if u.get("nome", "").lower() == nome.lower():
-                return dict(u)
-        return None
-
-    def base_criar_usuario(nome: str, email: str, senha: str) -> Tuple[bool, str]:
-        if not nome or not email or not senha:
-            return False, "Preencha nome, email e senha."
-        if base_buscar_usuario_por_email(email):
-            return False, "Já existe um usuário com esse email."
-        _SIM_USERS.append({"nome": nome, "email": email, "senha": senha})
-        return True, "Usuário criado (fallback em memória)."
-
-    def base_autenticar(email_or_identifier: str, senha: str) -> Tuple[bool, object]:
-        # tenta por email
-        u = base_buscar_usuario_por_email(email_or_identifier)
-        if u and u.get("senha") == senha:
-            return True, {"nome": u.get("nome"), "email": u.get("email")}
-        # tenta por nome
-        u = base_buscar_usuario_por_nome(email_or_identifier)
-        if u and u.get("senha") == senha:
-            return True, {"nome": u.get("nome"), "email": u.get("email")}
-        return False, "Email/nome ou senha inválidos (fallback)."
-
-# Wrappers simples (mantém a conveniência de nomes anteriores)
-def criar_usuario(nome: str, email: str, senha: str) -> Tuple[bool, str]:
-    return base_criar_usuario(nome, email, senha)  # type: ignore
-
-def autenticar(email_or_identifier: str, senha: str) -> Tuple[bool, object]:
-    return base_autenticar(email_or_identifier, senha)  # type: ignore
-
-def listar_usuarios() -> List[Dict[str, str]]:
-    return base_listar_usuarios()  # type: ignore
-
-def buscar_usuario_por_email(email: str) -> Optional[Dict[str, str]]:
-    return base_buscar_usuario_por_email(email)  # type: ignore
-
-def buscar_usuario_por_nome(nome: str) -> Optional[Dict[str, str]]:
-    return base_buscar_usuario_por_nome(nome)  # type: ignore
-
-
-# --------------------------
-# Validações locais
-# --------------------------
-def validar_nome(nome: str, min_len: int = MIN_NAME_LEN) -> Tuple[bool, str]:
-    if not nome or len(nome.strip()) < min_len:
-        return False, f"Nome deve ter pelo menos {min_len} caracteres."
-    return True, ""
-
-def validar_senha(senha: str, min_len: int = MIN_PASSWORD_LEN) -> Tuple[bool, str]:
-    if not senha or len(senha) < min_len:
-        return False, f"Senha/PIN deve ter pelo menos {min_len} caracteres."
-    return True, ""
-
-def validar_email(email: str) -> Tuple[bool, str]:
-    if (
-        not email
-        or "@" not in email
-        or email.strip().startswith("@")
-        or email.strip().endswith("@")
-    ):
-        return False, "Email inválido — deve conter '@' e formato básico correto."
-    return True, ""
+from interface.theme_engine import build_login_qss, build_theme_tokens, load_active_theme_record
+from interface.janelas.login_backend import (
+    USE_FALLBACK,
+    autenticar,
+    buscar_usuario_por_email,
+    buscar_usuario_por_nome,
+    criar_usuario,
+    listar_usuarios,
+    seed_demo_user_if_needed,
+    validar_email,
+    validar_nome,
+    validar_senha,
+)
 
 
 # --- CustomLineEdit: caret próprio e Enter handling ---
@@ -148,7 +36,6 @@ class CustomLineEdit(QLineEdit):
         caret_offset: deslocamento horizontal (pixels) aplicado ao caret.
                       Valores negativos movem o caret para a ESQUERDA,
                       valores positivos movem para a DIREITA.
-                      (ajuste fino para alinhar com fontes/proporções)
         """
         super().__init__(*args, **kwargs)
         self._caret_color = caret_color
@@ -161,7 +48,6 @@ class CustomLineEdit(QLineEdit):
         self._blink_timer.start()
         try:
             if hasattr(self, "setCursorWidth"):
-                # escondemos o cursor nativo para desenhar o nosso
                 self.setCursorWidth(0)
         except Exception:
             pass
@@ -169,7 +55,6 @@ class CustomLineEdit(QLineEdit):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAttribute(Qt.WA_InputMethodEnabled, True)
 
-        # repintar quando cursor/texto mudarem
         try:
             self.cursorPositionChanged.connect(lambda *a: self.update())
             self.textChanged.connect(lambda *a: self.update())
@@ -196,7 +81,6 @@ class CustomLineEdit(QLineEdit):
         super().focusOutEvent(ev)
 
     def keyPressEvent(self, ev):
-        # Captura Enter/Return para pular campos / confirmar ação.
         if ev.key() in (Qt.Key_Return, Qt.Key_Enter) and not (ev.modifiers() & Qt.ControlModifier):
             win = self.window()
             if hasattr(win, "handle_enter_from"):
@@ -209,19 +93,10 @@ class CustomLineEdit(QLineEdit):
         super().keyPressEvent(ev)
 
     def paintEvent(self, ev):
-        """
-        Desenha caret posicionado à direita do caractere anterior.
-        Estratégia:
-         - usar cursorRect().x quando cursorRect fornece largura consistente;
-         - senão, estimar largura do caractere anterior com fontMetrics().horizontalAdvance();
-         - fallback para averageCharWidth.
-        """
         super().paintEvent(ev)
         if self.hasFocus() and self._caret_visible:
             try:
                 cr: QRect = self.cursorRect()
-
-                # vertical/altura do caret
                 if cr.height() > 0:
                     y = cr.y()
                     h = cr.height()
@@ -229,10 +104,7 @@ class CustomLineEdit(QLineEdit):
                     h = self.fontMetrics().height()
                     y = max(0, (self.height() - h) // 2)
 
-                # horizontal: tentar posicionamento mais conservador para evitar overshoot
                 if cr.width() > 1:
-                    # usar cr.x() (ponto base) ao invés de cr.x() + cr.width()
-                    # reduz posicionamento demasiado à direita em algumas plataformas/fontes
                     x_base = cr.x()
                 else:
                     cp = self.cursorPosition()
@@ -242,13 +114,11 @@ class CustomLineEdit(QLineEdit):
                         adv = self.fontMetrics().horizontalAdvance(prev_char)
                         if adv <= 0:
                             adv = max(1, self.fontMetrics().averageCharWidth())
-                        # tentar posicionar relativo ao início do texto; cursorRect().x pode ser o ponto base
                         x_base = cr.x() + adv
                     else:
                         x_base = cr.x() + max(1, self.fontMetrics().averageCharWidth())
 
                 x = int(x_base + self._caret_offset)
-                # evitar sair dos limites do widget
                 x = max(0, min(x, self.width() - 1))
                 w = max(1, self._caret_width)
 
@@ -269,9 +139,12 @@ class TelaLogin(QWidget):
 
     def __init__(self, ao_logar_callback):
         super().__init__()
+        self.setObjectName("loginRoot")
         self.ao_logar_callback = ao_logar_callback
         self.modo_cadastro = False
-        self._single_user: Optional[Dict[str, str]] = None  # dict quando houver apenas 1 usuário
+        self._single_user: Optional[Dict[str, str]] = None
+        self._selected_foto_path: Optional[str] = None
+        self._theme_tokens = build_theme_tokens(load_active_theme_record())
 
         self.setWindowTitle("DevHive - Acesso")
         self.setFixedSize(840, 800)
@@ -286,11 +159,11 @@ class TelaLogin(QWidget):
         self.container.setObjectName("container")
         self.container.setFixedSize(self.width() - 80, self.height() - 80)
         self.container.move(40, 40)
-        self.container.setGraphicsEffect(self._criar_glow(40, QColor(255, 255, 255, 100)))
+        self.container.setGraphicsEffect(self._criar_glow(40, QColor(self._theme_tokens.accent)))
 
         self.container_layout = QVBoxLayout(self.container)
         self.container_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        self.container_layout.setSpacing(22)
+        self.container_layout.setSpacing(18)
         self.container_layout.setContentsMargins(120, 40, 120, 60)
 
         # Caminho absoluto correto
@@ -298,11 +171,12 @@ class TelaLogin(QWidget):
         logo_path = os.path.join(base_dir, "assets", "logo.png")
 
         self.logo_label = QLabel(self.container)
+        self.logo_label.setObjectName("logoLabel")
         self.logo_label.setAlignment(Qt.AlignCenter)
 
         if os.path.exists(logo_path):
             pix = QPixmap(logo_path).scaled(
-                110, 110, 
+                110, 110,
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation
             )
@@ -310,7 +184,6 @@ class TelaLogin(QWidget):
         else:
             self.logo_label.setText("DevHive")
             self.logo_label.setFont(QFont("Arial", 18, QFont.Bold))
-            self.logo_label.setStyleSheet("color: white;")
 
         self.container_layout.addWidget(self.logo_label)
 
@@ -318,15 +191,13 @@ class TelaLogin(QWidget):
         self.label_titulo = QLabel("Login", self.container)
         self.label_titulo.setAlignment(Qt.AlignCenter)
         self.label_titulo.setFont(QFont("Arial", 28, QFont.Bold))
-        self.label_titulo.setStyleSheet("color: white;")
-        self.label_titulo.setGraphicsEffect(self._criar_glow(30, QColor(255, 255, 255, 200)))
+        self.label_titulo.setGraphicsEffect(self._criar_glow(30, QColor(self._theme_tokens.accent)))
         self.container_layout.addWidget(self.label_titulo)
 
         # single user label
         self.single_user_label = QLabel("", self.container)
         self.single_user_label.setAlignment(Qt.AlignCenter)
         self.single_user_label.setFont(QFont("Arial", 12, QFont.Normal))
-        self.single_user_label.setStyleSheet("color: rgba(255,255,255,0.9);")
         self.single_user_label.hide()
         self.container_layout.addWidget(self.single_user_label)
 
@@ -344,6 +215,35 @@ class TelaLogin(QWidget):
         self._padronizar_input(self.input_email)
         self.container_layout.addWidget(self.input_email)
 
+        # cargo (opcional)
+        self.input_cargo = CustomLineEdit(self.container)
+        self.input_cargo.setPlaceholderText("Cargo (opcional)")
+        self.input_cargo.setObjectName("input")
+        self._padronizar_input(self.input_cargo)
+        self.input_cargo.setFixedHeight(45)
+        self.input_cargo.hide()
+        self.container_layout.addWidget(self.input_cargo)
+
+        # foto (opcional) - thumbnail + botão
+        foto_row = QHBoxLayout()
+        foto_row.setContentsMargins(0, 0, 0, 0)
+        foto_row.setSpacing(10)
+        self.foto_thumb = QLabel(self.container)
+        self.foto_thumb.setFixedSize(80, 80)
+        self.foto_thumb.setObjectName("fotoThumb")
+        self.foto_thumb.setAlignment(Qt.AlignCenter)
+        self.foto_thumb.hide()
+
+        self.foto_btn = QPushButton("Escolher foto", self.container)
+        self.foto_btn.setCursor(Qt.PointingHandCursor)
+        self.foto_btn.setFixedHeight(40)
+        self.foto_btn.clicked.connect(self._escolher_foto)
+        self.foto_btn.hide()
+
+        foto_row.addWidget(self.foto_thumb, 0, Qt.AlignLeft)
+        foto_row.addWidget(self.foto_btn, 1, Qt.AlignLeft)
+        self.container_layout.addLayout(foto_row)
+
         # senha
         self.password_container = QFrame(self.container)
         self.password_container.setObjectName("passwordFrame")
@@ -356,16 +256,15 @@ class TelaLogin(QWidget):
         self.input_senha = CustomLineEdit(self.password_container)
         self.input_senha.setPlaceholderText("Senha")
         self.input_senha.setEchoMode(QLineEdit.Password)
-        self.input_senha.setObjectName("input_inner")
+        self.input_senha.setObjectName("input")
         self._padronizar_input(self.input_senha)
-        self.input_senha.setStyleSheet("background: transparent; border: none; padding: 0px 15px; color: white;")
         pass_layout.addWidget(self.input_senha)
 
         self.eye_btn = QPushButton(self.password_container)
+        self.eye_btn.setObjectName("eyeBtn")
         self.eye_btn.setCursor(Qt.PointingHandCursor)
         self.eye_btn.setFixedSize(35, 30)
-        self.eye_btn.setStyleSheet("background: transparent; border: none;")
-        self.eye_btn.setIcon(self._criar_icone_olho(22, 16, visible=False))
+        self.eye_btn.setIcon(self._criar_icone_olho(22, 16, visible=False, color=QColor(self._theme_tokens.fg)))
         self.eye_btn.setIconSize(QSize(22, 16))
         self.eye_btn.clicked.connect(self._toggle_senha)
         pass_layout.addWidget(self.eye_btn)
@@ -390,7 +289,7 @@ class TelaLogin(QWidget):
         self.botao_fechar = QPushButton("X", self)
         self.botao_minimizar = QPushButton("-", self)
         for btn in (self.botao_fechar, self.botao_minimizar):
-            btn.setStyleSheet("background: transparent; border: none; color: white; font-weight: bold; font-size: 18px;")
+            btn.setObjectName("windowBtn")
             btn.setFixedSize(35, 35)
             btn.setCursor(Qt.PointingHandCursor)
         self.botao_fechar.clicked.connect(self.close)
@@ -398,6 +297,7 @@ class TelaLogin(QWidget):
 
         # splash
         self.splash_logo = QLabel(self)
+        self.splash_logo.setObjectName("splashLogo")
         self.splash_logo.setAlignment(Qt.AlignCenter)
         splash_size = 250
         if os.path.exists(logo_path):
@@ -406,7 +306,6 @@ class TelaLogin(QWidget):
         else:
             self.splash_logo.setText("DevHive")
             self.splash_logo.setFont(QFont("Arial", 48, QFont.Bold))
-            self.splash_logo.setStyleSheet("color: white;")
 
         self.splash_logo.setGeometry((self.width() - splash_size)//2, (self.height() - splash_size)//2, splash_size, splash_size)
         self.logo_effect = QGraphicsOpacityEffect(self.splash_logo)
@@ -430,17 +329,19 @@ class TelaLogin(QWidget):
         glow.setOffset(0, 0)
         return glow
 
-    def _criar_icone_olho(self, w, h, visible=False):
+    def _criar_icone_olho(self, w, h, visible=False, color=None):
+        if color is None:
+            color = QColor(self._theme_tokens.fg)
         pix = QPixmap(w, h)
         pix.fill(Qt.transparent)
         p = QPainter(pix)
         p.setRenderHint(QPainter.Antialiasing)
-        pen = QPen(QColor(255, 255, 255))
+        pen = QPen(QColor(color))
         pen.setWidth(2)
         p.setPen(pen)
         p.drawEllipse(1, 1, w-2, h-2)
         if visible:
-            p.setBrush(QBrush(QColor(255, 255, 255)))
+            p.setBrush(QBrush(QColor(color)))
             p.drawEllipse(w//2 - 3, h//2 - 3, 6, 6)
         else:
             p.drawLine(w//2 - 4, h - 4, w//2 + 4, 4)
@@ -450,10 +351,10 @@ class TelaLogin(QWidget):
     def _toggle_senha(self):
         if self.input_senha.echoMode() == QLineEdit.Password:
             self.input_senha.setEchoMode(QLineEdit.Normal)
-            self.eye_btn.setIcon(self._criar_icone_olho(22, 16, visible=True))
+            self.eye_btn.setIcon(self._criar_icone_olho(22, 16, visible=True, color=QColor(self._theme_tokens.fg)))
         else:
             self.input_senha.setEchoMode(QLineEdit.Password)
-            self.eye_btn.setIcon(self._criar_icone_olho(22, 16, visible=False))
+            self.eye_btn.setIcon(self._criar_icone_olho(22, 16, visible=False, color=QColor(self._theme_tokens.fg)))
 
     def centralizar_janela(self):
         tela = QApplication.primaryScreen().availableGeometry()
@@ -472,68 +373,35 @@ class TelaLogin(QWidget):
         widget.setAttribute(Qt.WA_InputMethodEnabled, True)
 
     def _configurar_paleta_e_caret(self):
+        fg = QColor(self._theme_tokens.fg)
+        accent = QColor(self._theme_tokens.accent)
+        placeholder = QColor(fg)
+        placeholder.setAlpha(150)
         pal = QPalette()
-        pal.setColor(QPalette.Text, QColor(255, 255, 255))
+        pal.setColor(QPalette.Text, fg)
         pal.setColor(QPalette.Base, QColor(0, 0, 0, 0))
         try:
-            pal.setColor(QPalette.PlaceholderText, QColor(255, 255, 255, 140))
+            pal.setColor(QPalette.PlaceholderText, placeholder)
         except Exception:
             pass
-        pal.setColor(QPalette.Highlight, QColor(255, 255, 255))
-        pal.setColor(QPalette.HighlightedText, QColor(0, 0, 0))
+        pal.setColor(QPalette.Highlight, accent)
+        pal.setColor(QPalette.HighlightedText, QColor("#ffffff") if accent.lightness() < 128 else QColor("#111111"))
 
-        for widget in (self.input_nome, self.input_email, self.input_senha):
+        for widget in (self.input_nome, self.input_email, self.input_senha, self.input_cargo):
             widget.setPalette(pal)
+            try:
+                widget._caret_color = fg
+                widget.update()
+            except Exception:
+                pass
 
     def aplicar_estilo(self):
-        self.setStyleSheet(f"""
-        QWidget {{ background-color: transparent; color: white; }}
-
-        QFrame#container {{
-            background-color: rgba(0, 0, 0, 0.85);
-            border-radius: 30px;
-            border: 2px solid rgba(255, 255, 255, 0.9);
-        }}
-
-        QLineEdit#input {{
-            background: transparent;
-            border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0px 15px; 
-            font-size: 16px;
-            color: white;
-            min-height: {self.INPUT_HEIGHT}px;
-        }}
-
-        QFrame#passwordFrame {{
-            background: transparent;
-            border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }}
-        QFrame#passwordFrame:hover {{
-            border-bottom: 1px solid white;
-        }}
-
-        QLineEdit#input:focus {{ border-bottom: 1px solid white; }}
-
-        QPushButton#botaoPrincipal {{
-            background-color: transparent;
-            border: 2px solid white;
-            border-radius: 25px;
-            padding: 14px;
-            font-weight: bold;
-            font-size: 16px;
-        }}
-        QPushButton#botaoPrincipal:hover {{ background-color: white; color: black; }}
-
-        QPushButton#botaoLink {{
-            background: transparent;
-            color: white;
-            border: none;
-            font-size: 14px;
-        }}
-        QPushButton#botaoLink:hover {{ text-decoration: underline; }}
-        """)
+        self._theme_tokens = build_theme_tokens(load_active_theme_record())
+        self.setStyleSheet(build_login_qss(self._theme_tokens))
+        self.label_titulo.setGraphicsEffect(self._criar_glow(30, QColor(self._theme_tokens.accent)))
+        self.container.setGraphicsEffect(self._criar_glow(40, QColor(self._theme_tokens.accent)))
+        self.eye_btn.setIcon(self._criar_icone_olho(22, 16, visible=self.input_senha.echoMode() != QLineEdit.Password, color=QColor(self._theme_tokens.fg)))
+        self._configurar_paleta_e_caret()
 
     # animações (splash)
     def start_splash(self):
@@ -568,30 +436,21 @@ class TelaLogin(QWidget):
         self.botao_fechar.raise_()
         self.botao_minimizar.raise_()
 
-        # dá um pequeno atraso para garantir que a UI já esteja visível, então
-        # define o foco inicial no campo apropriado.
         QTimer.singleShot(60, self._set_initial_focus)
 
     def _set_initial_focus(self):
-        """
-        Garante que o campo adequado receba foco quando a janela ficar visível.
-        Chama _check_single_user() para assegurar que o estado de single-user esteja correto.
-        """
         try:
-            # atualiza estado (em caso de race com init)
             self._check_single_user()
         except Exception:
             pass
 
         try:
-            # garante que a janela esteja ativa e visível antes de focar
             self.raise_()
             self.activateWindow()
             self.setFocus()
         except Exception:
             pass
 
-        # prioridade de foco conforme modo/estado
         try:
             if self.modo_cadastro:
                 if self.input_nome.isVisible():
@@ -603,7 +462,6 @@ class TelaLogin(QWidget):
                     return
 
             if self._single_user:
-                # se há apenas 1 usuário, foca a senha
                 self.input_senha.setFocus()
                 try:
                     self.input_senha.selectAll()
@@ -611,7 +469,6 @@ class TelaLogin(QWidget):
                     pass
                 return
 
-            # default: foca o campo de email (ou senha caso email não esteja visível)
             if self.input_email.isVisible():
                 self.input_email.setFocus()
                 try:
@@ -626,7 +483,6 @@ class TelaLogin(QWidget):
                     pass
 
         except Exception:
-            # fallback: apenas tenta focar o botão principal
             try:
                 self.botao_principal.setFocus()
             except Exception:
@@ -638,6 +494,10 @@ class TelaLogin(QWidget):
         self.botao_principal.setText("Cadastrar" if self.modo_cadastro else "Entrar")
         self.botao_alternar.setText("Já tenho conta" if self.modo_cadastro else "Criar conta")
         self.input_nome.setVisible(self.modo_cadastro)
+        self.input_cargo.setVisible(self.modo_cadastro)
+        self.foto_btn.setVisible(self.modo_cadastro)
+        # mostrar thumb apenas se já tiver selecionado foto
+        self.foto_thumb.setVisible(self.modo_cadastro and bool(self._selected_foto_path))
 
         if self.modo_cadastro:
             self.input_email.show()
@@ -655,7 +515,20 @@ class TelaLogin(QWidget):
             self._single_user = usuarios[0]
             self.input_email.hide()
             nome = self._single_user.get('nome') or self._single_user.get('email') or "Usuário"
-            self.single_user_label.setText(f"Entrar como: <b>{nome}</b> — insira sua senha")
+            cargo = self._single_user.get('cargo') or ""
+            foto = self._single_user.get('foto')
+            html = f"Entrar como: <b>{nome}</b>"
+            if cargo:
+                html += f" — <i>{cargo}</i>"
+            if foto and os.path.exists(foto):
+                # inseta thumbnail pequeno inline
+                try:
+                    pix = QPixmap(foto).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    # usar <img> com path absoluto funciona em QLabel HTML
+                    html = f"<img src='{foto}' width='28' height='28' style='vertical-align:middle; margin-right:6px;'/> " + html
+                except Exception:
+                    pass
+            self.single_user_label.setText(html)
             self.single_user_label.show()
             self.input_senha.setPlaceholderText(f"Senha — {nome}")
         else:
@@ -666,9 +539,6 @@ class TelaLogin(QWidget):
         self.container.update()
 
     def _inputs_filled_for_current_mode(self) -> bool:
-        """
-        Verifica se os campos necessários estão válidos para acionar Entrar/Cadastrar.
-        """
         if self.modo_cadastro:
             nome = self.input_nome.text().strip()
             email = self.input_email.text().strip()
@@ -698,16 +568,14 @@ class TelaLogin(QWidget):
             return ok
 
     def handle_enter_from(self, widget):
-        """
-        Navegação por Enter: pular para o próximo campo; se próximo for o botão e
-        todos os campos estiverem válidos, acionar.
-        """
         ordered = []
         if self.modo_cadastro:
             if self.input_nome.isVisible():
                 ordered.append(self.input_nome)
             if self.input_email.isVisible():
                 ordered.append(self.input_email)
+            if self.input_cargo.isVisible():
+                ordered.append(self.input_cargo)
             ordered.append(self.input_senha)
         else:
             if self._single_user:
@@ -786,6 +654,21 @@ class TelaLogin(QWidget):
 
         return False, "Email/nome ou senha inválidos."
 
+    def _escolher_foto(self):
+        # abre dialog e armazena caminho temporário
+        opts = QFileDialog.Options()
+        fname, _ = QFileDialog.getOpenFileName(self, "Escolher foto", "", "Imagens (*.png *.jpg *.jpeg *.bmp);;Todos os arquivos (*)", options=opts)
+        if not fname:
+            return
+        self._selected_foto_path = fname
+        try:
+            pix = QPixmap(fname).scaled(self.foto_thumb.width(), self.foto_thumb.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.foto_thumb.setPixmap(pix)
+            self.foto_thumb.show()
+        except Exception:
+            self.foto_thumb.setText("OK")
+            self.foto_thumb.show()
+
     def executar_acao(self):
         email_or_identifier = self.input_email.text().strip()
         senha = self.input_senha.text()
@@ -793,6 +676,7 @@ class TelaLogin(QWidget):
         if self.modo_cadastro:
             nome = self.input_nome.text().strip()
             email = self.input_email.text().strip()
+            cargo = self.input_cargo.text().strip() or None
 
             ok, msg = validar_nome(nome)
             if not ok:
@@ -810,14 +694,39 @@ class TelaLogin(QWidget):
                 self.input_senha.setFocus()
                 return
 
+            # se foto selecionada, copia para assets/user_photos com nome único
+            foto_to_store = None
+            if self._selected_foto_path:
+                try:
+                    base_dir = os.path.dirname(os.path.dirname(__file__))
+                    photos_dir = os.path.join(base_dir, "assets", "user_photos")
+                    os.makedirs(photos_dir, exist_ok=True)
+                    ext = os.path.splitext(self._selected_foto_path)[1].lower() or ".png"
+                    new_name = f"{uuid.uuid4().hex}{ext}"
+                    dest = os.path.join(photos_dir, new_name)
+                    shutil.copy2(self._selected_foto_path, dest)
+                    foto_to_store = dest
+                except Exception as e:
+                    # não falhar o cadastro por problema na cópia da foto; apenas logar
+                    print("Aviso: não foi possível copiar foto:", e)
+                    foto_to_store = None
+
             try:
-                sucesso, mensagem = criar_usuario(nome, email, senha)
+                sucesso, mensagem = criar_usuario(nome, email, senha, cargo, foto_to_store)
             except Exception as e:
                 QMessageBox.warning(self, "Erro", f"Erro ao criar usuário: {e}")
                 return
 
             if sucesso:
                 QMessageBox.information(self, "Sucesso", mensagem)
+                # limpa formulário / estado foto
+                self.input_nome.clear()
+                self.input_email.clear()
+                self.input_senha.clear()
+                self.input_cargo.clear()
+                self._selected_foto_path = None
+                self.foto_thumb.clear()
+                self.foto_thumb.hide()
                 self.alternar_modo()
                 QTimer.singleShot(50, self._check_single_user)
             else:
@@ -869,15 +778,9 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Se estivermos no fallback, crie um usuário de exemplo para facilitar testes locais.
-    if _use_fallback:
-        try:
-            # evita duplicação
-            if not listar_usuarios():
-                base_criar_usuario("DevUser", "dev@example.com", "1234")
-        except Exception:
-            pass
+    if USE_FALLBACK:
+        seed_demo_user_if_needed()
 
     login = TelaLogin(lambda user: print(f"Logou: {user}"))
     login.show()
     sys.exit(app.exec_())
- 

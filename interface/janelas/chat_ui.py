@@ -21,6 +21,7 @@ class ChatBubble(QFrame):
         super().__init__()
 
         self.setObjectName("chatBubble")
+        self.setProperty("sender", remetente)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -31,23 +32,25 @@ class ChatBubble(QFrame):
         layout.addWidget(label)
 
         if remetente == "user":
-            self.setStyleSheet("""
-                QFrame#chatBubble {
-                    background-color: grey;
+            self.setStyleSheet(
+                """
+                QFrame#chatBubble[sender="user"] {
+                    background-color: rgba(70, 130, 255, 0.28);
                     border-radius: 12px;
                     padding: 8px;
-                    color: white;
                 }
-            """)
+                """
+            )
         else:
-            self.setStyleSheet("""
-                QFrame#chatBubble {
-                    background-color: #000;
+            self.setStyleSheet(
+                """
+                QFrame#chatBubble[sender="bot"] {
+                    background-color: rgba(255, 255, 255, 0.06);
                     border-radius: 12px;
                     padding: 8px;
-                    color: white;
                 }
-            """)
+                """
+            )
 
 
 # ======================================================

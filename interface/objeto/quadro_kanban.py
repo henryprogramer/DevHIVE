@@ -105,28 +105,27 @@ class QuadroKanbanWindow(QWidget):
     # ---------- novo placeholder claro e responsivo (QPushButton) ----------
     def _create_add_column_button(self):
         btn = QPushButton("+\nAdicionar coluna")
+        btn.setObjectName("addColumnButton")
         btn.setFixedWidth(260)
         btn.setMinimumHeight(160)
         btn.setCursor(Qt.PointingHandCursor)
         btn.setFocusPolicy(Qt.StrongFocus)
         btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        # estilo com contraste para tema escuro; fica visível mesmo em fundos pretos
         btn.setStyleSheet("""
             QPushButton {
-                color: #ffffff;
-                background-color: rgba(80,80,80,220);
-                border: 1px solid rgba(200,200,200,0.08);
+                background-color: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.16);
                 border-radius: 8px;
                 font-size: 18px;
                 padding: 8px;
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: rgba(110,110,110,230);
+                background-color: rgba(255,255,255,0.10);
             }
             QPushButton:pressed {
-                background-color: rgba(140,140,140,230);
+                background-color: rgba(255,255,255,0.16);
             }
         """)
         btn.clicked.connect(self._on_add_column_clicked)

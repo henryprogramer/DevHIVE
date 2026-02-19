@@ -23,7 +23,6 @@ class NekoOrb(QWidget):
         self.lbl = QLabel("neko")
         self.lbl.setAlignment(Qt.AlignCenter)
         self.lbl.setFont(QFont("", 10, QFont.Bold))
-        self.lbl.setStyleSheet("color: white;")
         layout.addWidget(self.lbl)
         # animação simples de brilho (muda cor a cada 500ms)
         self._color_phase = 0

@@ -168,7 +168,7 @@ class PainelKanban(QWidget):
                 background-color: grey;
             }
         """)
-        btn_abrir.clicked.connect(lambda ch, q=qid: self.abrir_quadro_por_id(q))
+        btn_abrir.clicked.connect(lambda ch, q=qid, n=nome: self.abrir_quadro_por_id(q, n))
         layout_card.addWidget(btn_abrir)
 
         return card
@@ -192,13 +192,64 @@ class PainelKanban(QWidget):
             if self.controle_kanban.deletar_quadro(qid):
                 self.carregar_quadros()
 
-    def abrir_quadro_por_id(self, quadro_id):
+    def abrir_quadro_por_id(self, quadro_id, nome_quadro):
+        """
+        Abre o quadro embutido no main da InterfaceWindow exibindo o NOME do quadro.
+        Se não encontrar a Interface principal, abre como janela (fallback).
+        """
+
+        # =========================
+        # 1) PROCURAR A INTERFACE PRINCIPAL
+        # =========================
+        root = self
+        interface_candidate = None
+
+        while root is not None:
+            if hasattr(root, "content_layout") and hasattr(root, "clear_content_container"):
+                interface_candidate = root
+                break
+            root = root.parent()
+
+        # =========================
+        # 2) ABRIR EMBUTIDO NO MAIN
+        # =========================
+        if interface_candidate is not None:
+            try:
+                interface_candidate.clear_content_container()
+
+                quadro_widget = QuadroKanbanWindow(
+                    quadro_id=quadro_id,
+                    nome_quadro=nome_quadro,  # agora vem direto do card
+                    controle_coluna=self.controle_coluna,
+                    controle_card=self.controle_card,
+                    parent=interface_candidate.content_container
+                )
+
+                interface_candidate.content_layout.addWidget(quadro_widget)
+
+                try:
+                    interface_candidate.main_header.setText(f"Quadro Kanban — {nome_quadro}")
+                except Exception:
+                    pass
+
+                quadro_widget.show()
+                return
+
+            except Exception as e:
+                print("Erro ao embutir quadro no main:", e)
+
+        # =========================
+        # 3) FALLBACK: JANELA SEPARADA
+        # =========================
         try:
             self.janela_quadro = QuadroKanbanWindow(
                 quadro_id=quadro_id,
+                nome_quadro=nome_quadro,
                 controle_coluna=self.controle_coluna,
                 controle_card=self.controle_card
             )
+            self.janela_quadro.setWindowFlags(Qt.Window)
             self.janela_quadro.show()
+
         except Exception as e:
-            print(f"Erro ao abrir quadro: {e}")
+            print(f"Erro ao abrir quadro em janela separada: {e}")

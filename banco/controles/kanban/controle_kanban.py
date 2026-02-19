@@ -79,3 +79,15 @@ class ControleKanban:
             return False
         finally:
             conn.close()
+    
+    def buscar_nome_quadro(self):
+        try:
+            controle = ControleKanban()
+            # como você não tem get_por_id, podemos adaptar:
+            quadros = controle.listar_quadros(user_id=None)  # ou criar método específico
+            for q in quadros:
+                if q["id"] == self.quadro_id:
+                    return q["nome"]
+            return "Quadro"
+        except:
+            return "Quadro"

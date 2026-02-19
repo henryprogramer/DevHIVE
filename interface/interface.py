@@ -488,9 +488,9 @@ class InterfaceWindow(QMainWindow):
         self.scroll_content.setLayout(self.nav_layout)
         nav_v.addWidget(self.scroll, 1)
         sections = [
-            ("Seção mestre", [("chat", "Chat IA", "chat"), ("dashboard", "Painel (Dashboard)", "dashboard")]),
-            ("Fluxos", [("kanbans", "Painéis Kanban", "kanban")]),
-            ("Agentes", [("agents_monitor", "Monitoramento de Agentes", "monitor")])
+            ("Seção mestre", [("chat", "Chat Mestre", "chat"), ("dashboard", "Painel (Dashboard)", "dashboard")]),
+            ("Fluxos", [("kanbans", "Kanban", "kanban")]),
+            ("Agentes", [("agents_monitor", "Agentes", "monitor")])
         ]
         self._nav_sections = []
         for sec_title, items in sections:
